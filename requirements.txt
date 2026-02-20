@@ -1,0 +1,6 @@
+streamlit
+opengradient
+requests
+numpy
+plotly
+python-dotenv
