@@ -25,7 +25,7 @@ load_dotenv()
 # ─── Config ───────────────────────────────────────────────────────────────────
 PRIVATE_KEY = os.getenv("PRIVATE_KEY")
 MODEL_CID = "ur_9aUT9KW3RbAj3nsqP1Fors3tblkUf4Hw4D0QFDXc"
-BINANCE_API = "https://api.binance.com/api/v3/klines"
+CRYPTOCOMPARE_API = "https://min-api.cryptocompare.com/data/v2/histominute"
 STATIC_FEE = 0.003  # Standard 0.30% Uniswap fee for comparison
 
 # ─── Page Config ──────────────────────────────────────────────────────────────
@@ -202,26 +202,30 @@ def get_client():
 
 # ─── Fetch Live ETH/USDT Data ────────────────────────────────────────────────
 @st.cache_data(ttl=5)
-def fetch_ohlc(symbol="ETHUSDT", interval="1m", limit=120):
-    """Fetch minutely OHLC candles from Binance public API."""
+def fetch_ohlc(symbol="ETH", tsym="USDT", limit=120):
+    """Fetch minutely OHLC candles from CryptoCompare API (no geo-restrictions)."""
     try:
-        resp = requests.get(BINANCE_API, params={
-            "symbol": symbol,
-            "interval": interval,
+        resp = requests.get(CRYPTOCOMPARE_API, params={
+            "fsym": symbol,
+            "tsym": tsym,
             "limit": limit,
         }, timeout=10)
         resp.raise_for_status()
         raw = resp.json()
 
+        if raw.get("Response") != "Success":
+            st.error(f"CryptoCompare error: {raw.get('Message')}")
+            return []
+
         candles = []
-        for c in raw:
+        for c in raw["Data"]["Data"]:
             candles.append({
-                "timestamp": datetime.fromtimestamp(c[0] / 1000, tz=timezone.utc),
-                "open": float(c[1]),
-                "high": float(c[2]),
-                "low": float(c[3]),
-                "close": float(c[4]),
-                "volume": float(c[5]),
+                "timestamp": datetime.fromtimestamp(c["time"], tz=timezone.utc),
+                "open": float(c["open"]),
+                "high": float(c["high"]),
+                "low": float(c["low"]),
+                "close": float(c["close"]),
+                "volume": float(c["volumefrom"]),
             })
         return candles
     except Exception as e:
