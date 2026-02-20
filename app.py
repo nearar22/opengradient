@@ -340,15 +340,23 @@ def estimate_llmad_from_features(features):
     return llmad
 
 
-def llmad_to_fee(llmad_prediction, base_fee=0.001, scale=10.0):
+def llmad_to_fee(llmad_prediction):
     """
     Convert LLMAD volatility prediction to a dynamic fee.
 
+    Maps LLMAD range [0, 0.01] → fee range [0.05%, 0.80%].
     Higher volatility → higher fee to compensate LPs for risk.
     """
-    dynamic_fee = base_fee + abs(llmad_prediction) * scale
-    # Clamp between 0.01% and 1%
-    return max(0.0001, min(0.01, dynamic_fee))
+    min_fee = 0.0005   # 0.05% — calm market
+    max_fee = 0.008    # 0.80% — very volatile market
+    llmad_max = 0.01   # expected max LLMAD for ETH/USDT
+
+    # Normalize LLMAD to [0, 1]
+    normalized = min(abs(llmad_prediction) / llmad_max, 1.0)
+
+    # Map to fee range
+    fee = min_fee + normalized * (max_fee - min_fee)
+    return fee
 
 
 # ─── Run Inference ────────────────────────────────────────────────────────────
